@@ -14,7 +14,7 @@ export function Hero() {
       <div className="hero-copy">
         <p className="eyebrow">Mobile-first Web3 gaming IP</p>
         <h1>
-          RACE. MINE. EARN.
+          <span>RACE. MINE. EARN.</span>
           <span>ENTER THE DUMPAVERSE.</span>
         </h1>
         <p>
