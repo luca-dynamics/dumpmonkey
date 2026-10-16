@@ -13,11 +13,11 @@ Date: 2026-10-16. Engine: Godot 4.7.2.stable.official.ed1daf0bf. Windows, Compat
 
 ## Not verified / remaining release gates
 
-- Browser automation could discover the Chrome game tab but could not attach: `Debugger unattached`. In-app browser creation also timed out. No claim of browser gameplay E2E, browser FPS, browser audio or IndexedDB persistence verification.
+- The earlier debugger-attachment blocker was resolved during onboarding work. In-app browser startup, title rendering, Start Riding, cinematic-to-lesson handoff and real throttle-input advancement to braking were visually verified. Full browser lesson completion, browser FPS, audible output and IndexedDB persistence are not yet verified.
 - No Android device run, real gamepad test, human-driven full trial, outside playtest or ten-minute browser stability run.
 - Ramp/curb landing quality and sustained cornering feel need hands-on playtesting.
 - Production skinned rider, modular bike assets, animation and final engine/feedback sound design remain. Procedural models and the synthesized PCM loop do not meet those production deliverables.
-- Settings currently cover sound; quality presets, richer accessibility/input settings and touch controls remain.
+- Settings cover sound and reduced motion; quality presets, richer accessibility/input settings and touch controls remain.
 - Download/startup measurements on a real network and supported-device performance gates remain. Local file/gzip sizes are packaging measurements only.
 
 ## Local packaging measurements
@@ -27,3 +27,9 @@ Release export with title art and asphalt: WASM 39,514,754 bytes raw / 10,185,39
 ## Reproduction
 
 See `game/README.md` for pinned setup, tests, native launch and browser export commands. Run the local development server, open http://127.0.0.1:4173, select Time Trial or Free Ride. Use the in-game controls. Native screenshot captures are debugging evidence, not web-render verification.
+
+## Onboarding verification update
+
+`tests/onboarding.gd` adds 35 checks: skill/contact/input validity, continuous wheelie hold, retry retention, generated artwork load, integer/boolean motion-preference conversion, cinematic pause/skip/automatic handoff, pause disabling underlying controls, skip versus completion, saved preference readback, replay and returning-player behavior. All five skills are also driven using actual controller commands in the real scene without teleports or synthetic telemetry.
+
+Browser startup initially failed because JavaScriptBridge.eval returned an integer for the motion-preference boolean, and a direct comparison with `true` raised `Invalid operands 'int' and 'bool'`. A debug export exposed this; explicit `bool(value)` at the bridge boundary fixed it. The real release was then verified to render and advance the throttle lesson. Temporary DEBUG-onboarding-startup logs were removed. Browser loading now waits for `dumpmonkey:ready` and exposes initialization failures rather than silently revealing a blank canvas. Missing arrow glyphs found in the web capture were replaced with ASCII/control names.

@@ -5,6 +5,9 @@ var path: String = PATH
 var best_time: float = 0
 var best_wheelie: float = 0
 var muted: bool = false
+var introduction_complete: bool = false
+var reduced_motion: bool = false
+var has_motion_preference: bool = false
 var available: bool = true
 
 
@@ -22,6 +25,9 @@ func load_profile() -> void:
 	best_time = _valid_number(data.get("best_time", 0))
 	best_wheelie = _valid_number(data.get("best_wheelie", 0))
 	muted = data.get("muted", false) == true
+	introduction_complete = data.get("introduction_complete", false) == true
+	has_motion_preference = data.has("reduced_motion")
+	reduced_motion = data.get("reduced_motion", false) == true
 
 
 func save_profile() -> void:
@@ -29,7 +35,7 @@ func save_profile() -> void:
 	if file == null:
 		available = false
 		return
-	file.store_string(JSON.stringify({"version": 1, "best_time": best_time, "best_wheelie": best_wheelie, "muted": muted}))
+	file.store_string(JSON.stringify({"version": 1, "best_time": best_time, "best_wheelie": best_wheelie, "muted": muted, "introduction_complete": introduction_complete, "reduced_motion": reduced_motion}))
 	file.flush()
 	available = file.get_error() == OK
 

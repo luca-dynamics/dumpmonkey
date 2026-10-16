@@ -7,6 +7,13 @@ const Camera = preload("res://camera/chase_camera.gd")
 const Hud = preload("res://ui/racing_hud.gd")
 const Session = preload("res://modes/race_session.gd")
 const Save = preload("res://core/save_service.gd")
+const Lesson = preload("res://modes/ride_lesson.gd")
+const Feedback = preload("res://core/feedback_audio.gd")
+enum Opening { NONE, ARRIVAL, LESSON, INVITATION }
+var opening: Opening = Opening.NONE
+var lesson: RideLesson = Lesson.new()
+var feedback: Node
+var normal_top_speed: float = 38.0
 var bike: CharacterBody3D
 var track: Node3D
 var camera: Camera3D
@@ -24,6 +31,8 @@ var _engine_started: bool = false
 func _ready() -> void:
 	_bind_inputs()
 	profile.load_profile()
+	if OS.has_feature("web") and not profile.has_motion_preference:
+		_apply_browser_motion_preference(JavaScriptBridge.eval("window.matchMedia('(prefers-reduced-motion: reduce)').matches"))
 	_setup_environment()
 	track = Track.new()
 	add_child(track)
@@ -38,20 +47,36 @@ func _ready() -> void:
 	camera.target = bike
 	camera.current = true
 	add_child(camera)
+	camera.arrival_finished.connect(_finish_arrival)
 	hud = Hud.new()
 	add_child(hud)
 	hud.start_requested.connect(_start)
-	hud.retry_requested.connect(func(): _start(session.race))
+	hud.journey_requested.connect(_begin_journey)
+	hud.lesson_requested.connect(func(): _begin_journey(true))
+	hud.skip_arrival_requested.connect(_finish_arrival)
+	hud.skip_lesson_requested.connect(func(): _complete_lesson(false))
+	hud.retry_requested.connect(_restart)
 	hud.resume_requested.connect(func(): _pause(false))
 	hud.menu_requested.connect(_menu)
 	hud.mute_requested.connect(_toggle_sound)
+	hud.motion_requested.connect(_toggle_motion)
 	_setup_audio()
+	feedback = Feedback.new()
+	add_child(feedback)
+	hud.ui_confirmed.connect(feedback.play_confirm)
 	_update_profile_ui()
 	hud.show_menu()
 	track.highlight_gate(-1)
 	# Explicit dev switches are useful for visual checks, never active by default.
 	if "--practice" in OS.get_cmdline_user_args():
 		_start(false)
+	if OS.has_feature("web"):
+		JavaScriptBridge.eval("window.dispatchEvent(new Event('dumpmonkey:ready'))")
+
+
+func _apply_browser_motion_preference(value: Variant) -> void:
+	# The bridge can represent JavaScript booleans as integer variants on web.
+	profile.reduced_motion = bool(value)
 
 
 func _setup_environment() -> void:
@@ -108,6 +133,9 @@ func _bind_inputs() -> void:
 
 func _start(is_race: bool) -> void:
 	_commit_wheelie()
+	opening = Opening.NONE
+	camera.end_arrival()
+	bike.tuning.top_speed = normal_top_speed
 	paused = false
 	bike.reset_to(spawn)
 	bike.distance = 0
@@ -119,13 +147,99 @@ func _start(is_race: bool) -> void:
 	hud.toast_label.text = "Follow the yellow gates" if is_race else "Your yard. Your rules."
 	toast_time = 4
 	track.highlight_gate(0 if is_race else -1)
+	_ensure_audio()
+
+
+func _ensure_audio() -> void:
 	if not _engine_started:
 		engine.play()
 		_engine_started = true
 
 
+func _begin_journey(replay: bool = false) -> void:
+	if profile.introduction_complete and not replay:
+		_start(false)
+		return
+	if profile.reduced_motion:
+		_start_tutorial()
+		return
+	paused = false
+	opening = Opening.ARRIVAL
+	session.state = Session.State.MENU
+	bike.reset_to(spawn)
+	bike.active = false
+	hud.show_arrival()
+	camera.begin_arrival()
+	_ensure_audio()
+
+
+func _finish_arrival() -> void:
+	if opening != Opening.ARRIVAL:
+		return
+	camera.end_arrival()
+	_start_tutorial()
+
+
+func _start_tutorial() -> void:
+	_start(false)
+	opening = Opening.LESSON
+	bike.tuning.top_speed = 12.0
+	lesson.begin(bike.rotation.y)
+	hud.toast_label.text = ""
+	toast_time = 0
+	hud.show_lesson(lesson.step, lesson.progress)
+	# The lesson's skip button is optional; gameplay keys must reach the controller.
+	get_viewport().gui_release_focus()
+
+
+func _tick_lesson(delta: float) -> void:
+	if bike.crashed:
+		return
+	var advanced := lesson.tick(delta, bike.read_command(), bike.speed, bike.pitch, bike.rear_contact, bike.rotation.y)
+	if advanced:
+		feedback.play_success()
+	if lesson.step == Lesson.Step.COMPLETE:
+		_complete_lesson(true)
+	else:
+		hud.show_lesson(lesson.step, lesson.progress, lesson.elapsed)
+
+
+func _complete_lesson(completed: bool) -> void:
+	if opening != Opening.LESSON or paused:
+		return
+	_commit_wheelie()
+	opening = Opening.INVITATION
+	bike.active = false
+	bike.tuning.top_speed = normal_top_speed
+	session.state = Session.State.MENU
+	if completed:
+		profile.introduction_complete = true
+		profile.save_profile()
+	_update_profile_ui()
+	hud.show_invitation(completed)
+
+
+func _restart() -> void:
+	if opening == Opening.ARRIVAL:
+		_begin_journey(true)
+	elif opening == Opening.LESSON:
+		_start_tutorial()
+	else:
+		_start(session.race)
+
+
 func _physics_process(delta: float) -> void:
-	if session.state == Session.State.MENU or paused:
+	if paused:
+		engine.volume_db = -80
+		return
+	if opening == Opening.ARRIVAL:
+		engine.pitch_scale = 0.72
+		engine.volume_db = -80 if profile.muted else -30
+		hud.arrival_title.text = "CREW YARD" if camera.arrival_time < 2.5 else ("BUILT TO RIDE" if camera.arrival_time < 4.5 else "YOUR LINE STARTS HERE")
+		var shutter := maxf(1 - absf(camera.arrival_time - 2.5) / 0.14, 1 - absf(camera.arrival_time - 4.5) / 0.14)
+		hud.cinema_shutter.color.a = clampf(shutter, 0, 1)
+		return
+	if session.state == Session.State.MENU:
 		engine.volume_db = -80
 		return
 	var previous_state := session.state
@@ -145,6 +259,8 @@ func _physics_process(delta: float) -> void:
 			hud.toast_label.text = ""
 	bike.visual.animate_motion(bike.speed if bike.active else 0.0, bike.steer, delta)
 	_update_hud()
+	if opening == Opening.LESSON and session.state == Session.State.RIDING:
+		_tick_lesson(delta)
 	engine.pitch_scale = lerpf(0.7, 2.5, bike.speed / bike.tuning.top_speed)
 	engine.volume_db = -80 if profile.muted or bike.crashed or not bike.active else -24
 
@@ -212,12 +328,21 @@ func _respawn() -> void:
 	hud.toast_label.text = "BACK ON TWO WHEELS."
 	toast_time = 3
 	camera.initialized = false
+	if opening == Opening.LESSON:
+		lesson.recover(bike.rotation.y)
+		hud.toast_label.text = "FRESH START. SAME LESSON."
 
 
 func _unhandled_input(event: InputEvent) -> void:
+	if opening == Opening.ARRIVAL and not paused and event.is_action_pressed("ui_accept") and not event.is_echo():
+		_finish_arrival()
+		get_viewport().set_input_as_handled()
+		return
 	if event.is_action_pressed("pause") and not event.is_echo():
-		if session.state in [Session.State.COUNTDOWN, Session.State.RIDING]:
+		if session.state in [Session.State.COUNTDOWN, Session.State.RIDING] or opening == Opening.ARRIVAL:
 			_pause(not paused)
+		elif opening == Opening.INVITATION:
+			_menu()
 	elif event.is_action_pressed("respawn") and not event.is_echo():
 		_respawn()
 	elif event.is_action_pressed("mute") and not event.is_echo():
@@ -226,6 +351,7 @@ func _unhandled_input(event: InputEvent) -> void:
 
 func _pause(value: bool) -> void:
 	paused = value
+	camera.arrival_paused = value
 	bike.active = not value and session.state == Session.State.RIDING and not bike.crashed
 	hud.set_paused(value)
 	if value:
@@ -236,12 +362,15 @@ func _pause(value: bool) -> void:
 
 func _notification(what: int) -> void:
 	if what == NOTIFICATION_APPLICATION_FOCUS_OUT and is_instance_valid(hud):
-		if session.state in [Session.State.COUNTDOWN, Session.State.RIDING]:
+		if session.state in [Session.State.COUNTDOWN, Session.State.RIDING] or opening == Opening.ARRIVAL:
 			_pause(true)
 
 
 func _menu() -> void:
 	_commit_wheelie()
+	opening = Opening.NONE
+	camera.end_arrival()
+	bike.tuning.top_speed = normal_top_speed
 	paused = false
 	bike.active = false
 	session.state = Session.State.MENU
@@ -260,8 +389,29 @@ func _toggle_sound() -> void:
 	_update_profile_ui()
 
 
+func _toggle_motion() -> void:
+	profile.reduced_motion = not profile.reduced_motion
+	profile.has_motion_preference = true
+	profile.save_profile()
+	_update_profile_ui()
+
+
+func _input(event: InputEvent) -> void:
+	if not is_instance_valid(hud):
+		return
+	if (event is InputEventJoypadButton and event.pressed) or (event is InputEventJoypadMotion and absf(event.axis_value) > 0.25):
+		hud.gamepad_prompts = true
+	elif event is InputEventKey:
+		hud.gamepad_prompts = false
+
+
 func _update_profile_ui() -> void:
 	hud.mute_button.text = "SOUND OFF" if profile.muted else "SOUND ON"
+	hud.primary_button.text = "CONTINUE RIDING    >" if profile.introduction_complete else "START RIDING    >"
+	hud.motion_button.text = "REDUCED MOTION ON" if profile.reduced_motion else "REDUCED MOTION OFF"
+	hud.reduced_motion = profile.reduced_motion
+	camera.reduced_motion = profile.reduced_motion
+	feedback.muted = profile.muted
 	var best := Session.time_text(profile.best_time) if profile.best_time > 0 else "SET YOUR FIRST TIME"
 	hud.best_label.text = "BEST  %s\nWHEELIE  %.1f M" % [best, profile.best_wheelie]
 	if not profile.available:

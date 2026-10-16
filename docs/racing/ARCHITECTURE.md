@@ -14,6 +14,8 @@ One compact industrial circuit and practice area, one DumpMonkey rider, one orig
 
 Defer AI racers, traffic, police, full garage, rider creator, open world, first-person camera, multiplayer and token rewards. Do not imply that generated concept art is running gameplay.
 
+Owner approved an expanded opening on 2026-10-16: restrained title screen, skippable arrival, learn-through-play riding lessons, first wheelie/landing, and an invitation to a time trial. `RideLesson` owns skill progression separately from `RaceSession`; the camera owns cinematic sampling and the HUD owns presentation. Reduced motion skips the arrival and disables nonessential transitions. Only a completed landing persists introduction completion. Skips leave it incomplete. Browser loading waits for actual scene readiness rather than only engine startup.
+
 ## Simulation
 
 Custom CharacterBody3D arcade controller. Ground probes establish contact and slope; authored acceleration, braking, steering, grip and gravity determine movement at a fixed physics tick. Keep presentation transforms separate from collision. Validate ramps, curbs and landings before expanding stunts.

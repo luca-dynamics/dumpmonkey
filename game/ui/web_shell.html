@@ -39,7 +39,26 @@
     const progress = document.getElementById('progress');
     const status = document.getElementById('status');
     const notice = document.getElementById('notice');
+    let engineStarted = false;
+    let sceneReady = false;
+    let failed = false;
+    const startupTimeout = setTimeout(() => {
+      if (!sceneReady) failure('The yard did not finish loading. Please reload to try again.');
+    }, 60000);
+    function finishStartup() {
+      if (!engineStarted || !sceneReady || failed) return;
+      clearTimeout(startupTimeout);
+      loading.setAttribute('aria-busy', 'false');
+      loading.hidden = true;
+      document.getElementById('canvas').focus();
+    }
+    window.addEventListener('dumpmonkey:ready', () => {
+      sceneReady = true;
+      finishStartup();
+    }, { once: true });
     function failure(error) {
+      failed = true;
+      clearTimeout(startupTimeout);
       console.error(error);
       loading.hidden = false;
       loading.setAttribute('aria-busy', 'false');
@@ -55,7 +74,12 @@
       if (missing.length) {
         failure('Missing browser features: ' + missing.join(', '));
       } else {
-        const engine = new Engine(config);
+        const engine = new Engine({ ...config, onPrintError(...messages) {
+          console.error(...messages);
+          if (!sceneReady && messages.join(' ').includes('SCRIPT ERROR')) {
+            failure('The game could not initialize. Reload to try again.');
+          }
+        }});
         engine.startGame({
           onProgress(current, total) {
             if (current > 0 && total > 0) {
@@ -66,9 +90,9 @@
             }
           }
         }).then(() => {
-          loading.setAttribute('aria-busy', 'false');
-          loading.hidden = true;
-          document.getElementById('canvas').focus();
+          engineStarted = true;
+          status.textContent = 'Preparing Crew Yard…';
+          finishStartup();
         }, failure);
       }
     }

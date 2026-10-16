@@ -29,11 +29,18 @@ W/up: accelerate. S/down: brake. A/D or arrows: steer. Hold Space: wheelie. Q/E:
 
 Gamepad mappings exist for triggers, left-stick steering, right-stick balance, A wheelie, Y reset and Start pause. Hardware/browser mappings remain unverified. Touch controls are deferred.
 
+## First ride
+
+Start Riding introduces new players through a skippable seven-second in-engine arrival and five interactive skills: acceleration, stopping, steering, a 1.2-second wheelie, and a rolling landing. A completion screen offers the time trial or more practice. Lessons validate actual motion/contact and input; resetting retries the current step. Skipping does not mark the introduction complete. Returning players can continue directly or replay the introduction.
+
+Reduced Motion bypasses the arrival, removes UI fades and disables speed-driven camera FOV changes. The initial web preference follows the browser setting until a saved preference exists. Sound and motion preferences persist. The title uses generated key art; the arrival uses the current development 3D assets, which still need production replacement.
+
 ## Verification
 
 ```powershell
 & ./.tools/godot/Godot_v4.7.2-stable_win64_console.exe --headless --path game --script res://tests/run_tests.gd
 & ./.tools/godot/Godot_v4.7.2-stable_win64_console.exe --headless --path game --script res://tests/integration.gd
+& ./.tools/godot/Godot_v4.7.2-stable_win64_console.exe --headless --path game --script res://tests/onboarding.gd
 ```
 
 The integration test uses a separate save filename. It verifies UI signals and gate/finish integration, not a human-driven complete lap. Visual captures can be generated with `--script res://tests/capture.gd` and optionally `-- --capture-ride`; output stays in ignored `game/test-output/`.

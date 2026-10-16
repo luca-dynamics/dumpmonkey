@@ -1,18 +1,38 @@
 extends CanvasLayer
 
 signal start_requested(race: bool)
+signal journey_requested
+signal lesson_requested
+signal skip_arrival_requested
+signal skip_lesson_requested
 signal retry_requested
 signal resume_requested
 signal menu_requested
 signal mute_requested
+signal motion_requested
+signal ui_confirmed
 
 const YELLOW := Color("f4ce31")
-const PAPER := Color("eeeede")
-const INK := Color("11191eea")
+const PAPER := Color("f0f0e8")
+const MUTED := Color("b0b9b5")
+const INK := Color("11191ef0")
+const DISPLAY_FONT = preload("res://assets/fonts/BarlowCondensed-ExtraBold.ttf")
+const BODY_FONT = preload("res://assets/fonts/Barlow-Medium.ttf")
+const Lesson = preload("res://modes/ride_lesson.gd")
 var root: Control
 var menu: PanelContainer
 var pause_panel: PanelContainer
 var result_panel: PanelContainer
+var invitation_panel: PanelContainer
+var arrival: Control
+var arrival_title: Label
+var arrival_caption: Label
+var lesson_panel: PanelContainer
+var lesson_title: Label
+var lesson_copy: Label
+var lesson_keys: Label
+var lesson_step: Label
+var lesson_progress: ProgressBar
 var speed_label: Label
 var timer_label: Label
 var checkpoint_label: Label
@@ -20,10 +40,23 @@ var stunt_label: Label
 var toast_label: Label
 var countdown_label: Label
 var result_label: Label
+var result_time: Label
 var best_label: Label
+var primary_button: Button
+var motion_button: Button
 var balance: ProgressBar
 var telemetry: Control
+var tips_panel: PanelContainer
+var clock_panel: PanelContainer
+var stunt_panel: PanelContainer
 var mute_button: Button
+var invitation_title: Label
+var invitation_copy: Label
+var reduced_motion: bool = false
+var gamepad_prompts: bool = false
+var _tweens: Dictionary = {}
+var modal_scrim: ColorRect
+var cinema_shutter: ColorRect
 
 
 func _ready() -> void:
@@ -31,66 +64,82 @@ func _ready() -> void:
 	root.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	root.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	add_child(root)
-	var theme := Theme.new()
-	theme.default_font_size = 18
-	theme.set_color("font_color", "Label", PAPER)
-	theme.set_color("font_color", "Button", PAPER)
-	theme.set_color("font_hover_color", "Button", YELLOW)
-	theme.set_color("font_focus_color", "Button", YELLOW)
-	for state in ["normal", "hover", "pressed", "focus"]:
-		var style := StyleBoxFlat.new()
-		style.bg_color = Color("273036") if state == "normal" else Color("3b4549")
-		style.border_color = YELLOW if state == "focus" else Color("56615d")
-		style.set_border_width_all(2 if state == "focus" else 1)
-		style.content_margin_left = 22
-		style.content_margin_right = 22
-		style.content_margin_top = 14
-		style.content_margin_bottom = 14
-		theme.set_stylebox(state, "Button", style)
-	root.theme = theme
+	root.theme = _theme()
 	_build_menu()
 	_build_telemetry()
-	pause_panel = _panel(Vector2(430, 360), Vector2(0.5, 0.5))
-	var pause_box := _column(pause_panel)
-	_label(pause_box, "TAKE A BREATHER", 30, YELLOW)
-	_button(pause_box, "RESUME", func(): resume_requested.emit())
-	_button(pause_box, "RESTART RUN", func(): retry_requested.emit())
-	_button(pause_box, "BACK TO YARD", func(): menu_requested.emit())
-	pause_panel.hide()
-	result_panel = _panel(Vector2(480, 380), Vector2(0.5, 0.5))
-	var result_box := _column(result_panel)
-	_label(result_box, "RUN COMPLETE", 32, YELLOW)
-	result_label = _label(result_box, "", 27)
-	_button(result_box, "RUN IT AGAIN", func(): retry_requested.emit())
-	_button(result_box, "BACK TO YARD", func(): menu_requested.emit())
-	result_panel.hide()
+	_build_arrival()
+	_build_lesson()
+	_build_overlays()
+
+
+func _theme() -> Theme:
+	var theme := Theme.new()
+	theme.default_font = BODY_FONT
+	theme.default_font_size = 20
+	theme.set_color("font_color", "Label", PAPER)
+	for state in ["font_color", "font_hover_color", "font_focus_color"]:
+		theme.set_color(state, "Button", PAPER if state == "font_color" else YELLOW)
+	for state in ["normal", "hover", "pressed", "focus"]:
+		var style := StyleBoxFlat.new()
+		style.bg_color = Color("ffffff0a") if state != "normal" else Color.TRANSPARENT
+		style.border_color = YELLOW
+		style.border_width_left = 3 if state in ["hover", "focus"] else 0
+		style.content_margin_left = 20
+		style.content_margin_right = 20
+		style.content_margin_top = 12
+		style.content_margin_bottom = 12
+		theme.set_stylebox(state, "Button", style)
+	for key in ["background", "fill"]:
+		var style := StyleBoxFlat.new()
+		style.bg_color = YELLOW if key == "fill" else Color("ffffff22")
+		theme.set_stylebox(key, "ProgressBar", style)
+	return theme
 
 
 func _build_menu() -> void:
-	# Game stays live behind the menu. Illustration becomes a title backdrop when available.
-	if ResourceLoader.exists("res://assets/art/title-crew-yard.png"):
-		var artwork := TextureRect.new()
-		artwork.name = "TitleArtwork"
-		artwork.texture = load("res://assets/art/title-crew-yard.png")
-		artwork.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-		artwork.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_COVERED
-		artwork.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-		artwork.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		root.add_child(artwork)
-	menu = _panel(Vector2(490, 620), Vector2(0.05, 0.5))
-	var column := _column(menu)
-	_label(column, "DUMPMONKEYCREW  /  RACING", 16, YELLOW)
-	_label(column, "OWN THE\nSTREETS.", 64)
-	_label(column, "CREW YARD  /  01", 24, YELLOW)
-	_label(column, "Find your line. Lift the front.\nMake the next run yours.", 19)
-	var spacer := Control.new()
-	spacer.custom_minimum_size.y = 12
-	column.add_child(spacer)
-	_button(column, "TIME TRIAL     →", func(): start_requested.emit(true))
-	_button(column, "FREE RIDE      →", func(): start_requested.emit(false))
-	best_label = _label(column, "", 16)
-	_label(column, "W / ↑  throttle     S / ↓  brake\nA D / ← →  steer     SPACE  wheelie\nQ / E  lower / raise balance\nR  respawn     ESC  pause", 16)
-	mute_button = _button(column, "SOUND ON", func(): mute_requested.emit())
+	var artwork := TextureRect.new()
+	artwork.name = "TitleArtwork"
+	artwork.texture = load("res://assets/art/onboarding-crew-yard-v2.png")
+	artwork.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	artwork.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_COVERED
+	artwork.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	artwork.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	root.add_child(artwork)
+	var gradient := Gradient.new()
+	gradient.set_color(0, Color("0c1218f2"))
+	gradient.set_color(1, Color("0c121800"))
+	var texture := GradientTexture2D.new()
+	texture.gradient = gradient
+	texture.fill_from = Vector2(0.1, 0)
+	texture.fill_to = Vector2(0.72, 0)
+	var veil := TextureRect.new()
+	veil.name = "TitleVeil"
+	veil.texture = texture
+	veil.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	veil.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	root.add_child(veil)
+	menu = _panel(Vector2(490, 710), Vector2(0.055, 0.5), null, true)
+	var box := _column(menu, 0, 9)
+	_label(box, "DUMPMONKEYCREW PRESENTS", 17, YELLOW)
+	var title := _label(box, "DUMP\nMONKEY", 102)
+	title.add_theme_constant_override("line_spacing", -27)
+	_label(box, "RACING", 40, YELLOW)
+	_label(box, "CREW YARD  /  CHAPTER 01", 17, MUTED)
+	_spacer(box, 12)
+	primary_button = _button(box, "START RIDING     >", func(): journey_requested.emit(), true)
+	var choices := HBoxContainer.new()
+	box.add_child(choices)
+	_button(choices, "TIME TRIAL", func(): start_requested.emit(true))
+	_button(choices, "FREE RIDE", func(): start_requested.emit(false))
+	_button(box, "REPLAY RIDING INTRO", func(): lesson_requested.emit())
+	best_label = _label(box, "", 16, MUTED)
+	var options := HBoxContainer.new()
+	box.add_child(options)
+	mute_button = _button(options, "SOUND ON", func(): mute_requested.emit())
+	mute_button.add_theme_font_size_override("font_size", 15)
+	motion_button = _button(options, "REDUCED MOTION OFF", func(): motion_requested.emit())
+	motion_button.add_theme_font_size_override("font_size", 15)
+	_label(box, "SELECT  Enter / A     •     NAVIGATE  Arrows / D-pad", 14, MUTED)
 
 
 func _build_telemetry() -> void:
@@ -98,76 +147,251 @@ func _build_telemetry() -> void:
 	telemetry.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	telemetry.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	root.add_child(telemetry)
-	var header := _panel(Vector2(330, 104), Vector2(0.025, 0.025), telemetry)
-	var header_box := _column(header, 14)
-	_label(header_box, "CREW YARD / 01", 17, YELLOW)
-	checkpoint_label = _label(header_box, "FREE RIDE", 23)
-	var clock := _panel(Vector2(270, 104), Vector2(0.975, 0.025), telemetry)
-	var clock_box := _column(clock, 14)
-	_label(clock_box, "RUN TIME", 15, YELLOW)
-	timer_label = _label(clock_box, "00:00.00", 32)
-	var speed_panel := _panel(Vector2(240, 145), Vector2(0.975, 0.96), telemetry)
-	var speed_box := _column(speed_panel, 14)
-	speed_label = _label(speed_box, "000", 58)
-	_label(speed_box, "KM/H    /    CREW SPEC", 14, YELLOW)
-	var tips := _panel(Vector2(410, 100), Vector2(0.025, 0.96), telemetry)
-	var tips_box := _column(tips, 14)
-	_label(tips_box, "SPACE  wheelie    Q / E  balance", 17)
-	_label(tips_box, "R  respawn    ESC  pause    M  sound", 15, YELLOW)
-	var stunt_panel := _panel(Vector2(420, 110), Vector2(0.5, 0.96), telemetry)
-	var stunt_box := _column(stunt_panel, 12)
-	stunt_label = _label(stunt_box, "LIFT IT. HOLD IT.", 24, YELLOW)
-	balance = ProgressBar.new()
-	balance.custom_minimum_size = Vector2(350, 12)
+	var box := _column(_panel(Vector2(330, 100), Vector2(0.025, 0.025), telemetry), 14)
+	_label(box, "CREW YARD / 01", 16, YELLOW)
+	checkpoint_label = _label(box, "FREE RIDE", 27)
+	clock_panel = _panel(Vector2(260, 100), Vector2(0.975, 0.025), telemetry)
+	box = _column(clock_panel, 14)
+	_label(box, "RUN TIME", 15, MUTED)
+	timer_label = _label(box, "00:00.00", 34)
+	box = _column(_panel(Vector2(210, 140), Vector2(0.975, 0.96), telemetry), 14, 0)
+	speed_label = _label(box, "000", 68)
+	_label(box, "KM/H  /  CREW SPEC", 14, YELLOW)
+	tips_panel = _panel(Vector2(390, 90), Vector2(0.025, 0.96), telemetry)
+	box = _column(tips_panel, 14)
+	_label(box, "SPACE  wheelie    Q / E  balance", 17)
+	_label(box, "R  respawn    ESC  pause    M  sound", 15, YELLOW)
+	stunt_panel = _panel(Vector2(400, 100), Vector2(0.5, 0.96), telemetry)
+	box = _column(stunt_panel, 12)
+	stunt_label = _label(box, "LIFT IT. HOLD IT.", 28, YELLOW)
+	balance = _progress(box, 350)
 	balance.max_value = 1.12
-	balance.show_percentage = false
-	stunt_box.add_child(balance)
-	toast_label = _label(telemetry, "", 23, YELLOW)
-	toast_label.set_anchors_and_offsets_preset(Control.PRESET_CENTER_TOP)
-	toast_label.offset_left = -290
-	toast_label.offset_right = 290
-	toast_label.offset_top = 145
-	toast_label.offset_bottom = 185
-	toast_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	countdown_label = _label(telemetry, "", 100, YELLOW)
-	countdown_label.set_anchors_and_offsets_preset(Control.PRESET_CENTER)
-	countdown_label.offset_left = -200
-	countdown_label.offset_right = 200
-	countdown_label.offset_top = -100
-	countdown_label.offset_bottom = 40
-	countdown_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	toast_label = _label(telemetry, "", 24, YELLOW)
+	_center(toast_label, Vector2(0.5, 0), Vector2(700, 48), 132)
+	countdown_label = _label(telemetry, "", 120, YELLOW)
+	_center(countdown_label, Vector2(0.5, 0.5), Vector2(500, 170), -100)
 	telemetry.hide()
+
+
+func _build_arrival() -> void:
+	arrival = Control.new()
+	arrival.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	arrival.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	root.add_child(arrival)
+	for bottom in [false, true]:
+		var bar := ColorRect.new()
+		bar.color = Color("080c10")
+		bar.anchor_right = 1
+		bar.anchor_top = 1 if bottom else 0
+		bar.anchor_bottom = bar.anchor_top
+		bar.offset_top = -86 if bottom else 0
+		bar.offset_bottom = 0 if bottom else 86
+		bar.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		arrival.add_child(bar)
+	var gradient := Gradient.new()
+	gradient.set_color(0, Color(0, 0, 0, 0))
+	gradient.set_color(1, Color(0, 0, 0, 0.8))
+	var texture := GradientTexture2D.new()
+	texture.gradient = gradient
+	texture.fill_from = Vector2(0, 0)
+	texture.fill_to = Vector2(0, 1)
+	var caption_backdrop := TextureRect.new()
+	caption_backdrop.texture = texture
+	caption_backdrop.anchor_right = 1
+	caption_backdrop.anchor_top = 1
+	caption_backdrop.anchor_bottom = 1
+	caption_backdrop.offset_top = -280
+	caption_backdrop.offset_bottom = -86
+	caption_backdrop.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	arrival.add_child(caption_backdrop)
+	cinema_shutter = ColorRect.new()
+	cinema_shutter.color = Color(0, 0, 0, 0)
+	cinema_shutter.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	cinema_shutter.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	arrival.add_child(cinema_shutter)
+	arrival_title = _label(arrival, "CREW YARD", 66)
+	arrival_title.anchor_top = 1
+	arrival_title.anchor_bottom = 1
+	arrival_title.offset_left = 64
+	arrival_title.offset_top = -220
+	arrival_caption = _label(arrival, "HOME OF DUMPMONKEYCREW", 17, YELLOW)
+	arrival_caption.anchor_top = 1
+	arrival_caption.anchor_bottom = 1
+	arrival_caption.offset_left = 67
+	arrival_caption.offset_top = -140
+	var skip := _button(arrival, "SKIP ARRIVAL  /  ENTER", func(): skip_arrival_requested.emit())
+	skip.anchor_left = 1
+	skip.anchor_right = 1
+	skip.anchor_top = 1
+	skip.anchor_bottom = 1
+	skip.offset_left = -340
+	skip.offset_right = -40
+	skip.offset_top = -67
+	skip.offset_bottom = -12
+	arrival.hide()
+
+
+func _build_lesson() -> void:
+	lesson_panel = _panel(Vector2(540, 252), Vector2(0.035, 0.94))
+	var box := _column(lesson_panel, 24, 6)
+	lesson_step = _label(box, "FIRST RIDE   /   01 — 05", 16, YELLOW)
+	lesson_title = _label(box, "FEEL THE THROTTLE", 40)
+	lesson_copy = _label(box, "", 20)
+	lesson_keys = _label(box, "", 19, YELLOW)
+	lesson_progress = _progress(box, 480)
+	var actions := HBoxContainer.new()
+	box.add_child(actions)
+	_label(actions, "R  retry this step", 15, MUTED)
+	_button(actions, "SKIP LESSON", func(): skip_lesson_requested.emit()).add_theme_font_size_override("font_size", 15)
+	lesson_panel.hide()
+
+
+func _build_overlays() -> void:
+	modal_scrim = ColorRect.new()
+	modal_scrim.color = Color("080c1077")
+	modal_scrim.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	root.add_child(modal_scrim)
+	modal_scrim.hide()
+	pause_panel = _panel(Vector2(470, 370), Vector2(0.5, 0.5))
+	var box := _column(pause_panel, 30)
+	_label(box, "TAKE A BREATHER", 44)
+	_button(box, "RESUME", func(): resume_requested.emit(), true)
+	_button(box, "RESTART", func(): retry_requested.emit())
+	_button(box, "BACK TO TITLE", func(): menu_requested.emit())
+	pause_panel.hide()
+	result_panel = _panel(Vector2(560, 410), Vector2(0.5, 0.5))
+	box = _column(result_panel, 32)
+	_label(box, "CREW YARD / TIME TRIAL", 17, YELLOW)
+	_label(box, "THAT’S YOUR LINE.", 48)
+	result_time = _label(box, "00:00.00", 78)
+	result_label = _label(box, "", 20, YELLOW)
+	_button(box, "BEAT YOUR TIME    >", func(): retry_requested.emit(), true)
+	_button(box, "BACK TO TITLE", func(): menu_requested.emit())
+	result_panel.hide()
+	invitation_panel = _panel(Vector2(590, 400), Vector2(0.5, 0.5))
+	box = _column(invitation_panel, 32)
+	_label(box, "YOUR FIRST RIDE", 17, YELLOW)
+	invitation_title = _label(box, "YOU’RE IN THE CREW.", 52)
+	invitation_copy = _label(box, "Five skills. One bike. Now make it a run.", 21)
+	_button(box, "TAKE ON THE TIME TRIAL    >", func(): start_requested.emit(true), true)
+	_button(box, "KEEP PRACTICING", func(): start_requested.emit(false))
+	_button(box, "BACK TO TITLE", func(): menu_requested.emit())
+	invitation_panel.hide()
 
 
 func show_menu() -> void:
+	_hide_overlays()
 	menu.show()
 	telemetry.hide()
-	pause_panel.hide()
-	result_panel.hide()
-	if root.has_node("TitleArtwork"):
-		root.get_node("TitleArtwork").show()
-	_focus_first(menu)
+	root.get_node("TitleArtwork").show()
+	root.get_node("TitleVeil").show()
+	_reveal(menu)
+	primary_button.grab_focus()
 
 
 func start_run() -> void:
+	_hide_overlays()
 	menu.hide()
-	pause_panel.hide()
-	result_panel.hide()
 	telemetry.show()
-	if root.has_node("TitleArtwork"):
-		root.get_node("TitleArtwork").hide()
+	clock_panel.show()
+	tips_panel.show()
+	stunt_panel.show()
+	root.get_node("TitleArtwork").hide()
+	root.get_node("TitleVeil").hide()
+
+
+func show_arrival() -> void:
+	start_run()
+	telemetry.hide()
+	arrival.show()
+	_focus_first(arrival)
+
+
+func show_lesson(step: int, progress_value: float, elapsed: float = 0.0) -> void:
+	var changing: bool = not lesson_panel.visible or lesson_step.get_meta("step", -1) != step
+	lesson_step.set_meta("step", step)
+	lesson_panel.show()
+	clock_panel.hide()
+	tips_panel.hide()
+	stunt_panel.hide()
+	checkpoint_label.text = "FIRST RIDE"
+	lesson_step.text = "FIRST RIDE   /   %02d — 05" % (step + 1)
+	var keyboard: Array[String] = ["HOLD  W / UP ARROW", "HOLD  S / DOWN ARROW", "W + A / D  •  GENTLE INPUT", "W + SPACE  •  Q / E TO BALANCE", "RELEASE SPACE  •  TAP S TO LOWER"]
+	var pad: Array[String] = ["HOLD  RIGHT TRIGGER", "HOLD  LEFT TRIGGER", "RIGHT TRIGGER + LEFT STICK", "RIGHT TRIGGER + A  •  RIGHT STICK TO BALANCE", "RELEASE A  •  LEFT TRIGGER TO LOWER"]
+	var titles: Array[String] = ["FEEL THE THROTTLE", "FIND YOUR BRAKES", "CHOOSE YOUR LINE", "LIFT IT. HOLD IT.", "BRING IT HOME"]
+	var copy: Array[String] = ["Build up to 15 km/h on the straight.", "Release the throttle and come to a stop.", "Roll forward and make a gentle turn.", "Hold a balanced wheelie for 1.2 seconds.", "Lower the front wheel while still rolling."]
+	lesson_title.text = titles[step]
+	lesson_copy.text = copy[step]
+	if elapsed > 18 and step == Lesson.Step.WHEELIE:
+		lesson_copy.text = "Get above 20 km/h, then hold the wheelie."
+	lesson_keys.text = (pad if gamepad_prompts else keyboard)[step]
+	lesson_progress.value = progress_value
+	if changing:
+		_reveal(lesson_panel)
+
+
+func show_invitation(completed: bool) -> void:
+	lesson_panel.hide()
+	telemetry.hide()
+	invitation_title.text = "YOU’RE IN THE CREW." if completed else "YOUR YARD AWAITS."
+	invitation_copy.text = "Five skills. One bike. Now make it a run." if completed else "The riding lesson is always here when you want it."
+	invitation_panel.show()
+	_set_modal(invitation_panel)
+	_reveal(invitation_panel)
+	_focus_first(invitation_panel)
 
 
 func set_paused(value: bool) -> void:
 	pause_panel.visible = value
 	if value:
+		_set_modal(pause_panel)
+		_reveal(pause_panel)
 		_focus_first(pause_panel)
+	else:
+		_set_modal(null)
+		root.get_viewport().gui_release_focus()
 
 
 func show_result(text: String) -> void:
-	result_label.text = text
+	var lines := text.split("\n", true, 1)
+	result_time.text = lines[0]
+	result_label.text = lines[1] if lines.size() > 1 else "Clean run. Ready to go faster?"
 	result_panel.show()
+	_set_modal(result_panel)
+	_reveal(result_panel)
 	_focus_first(result_panel)
+
+
+func _hide_overlays() -> void:
+	_set_modal(null)
+	for control in [pause_panel, result_panel, arrival, lesson_panel, invitation_panel]:
+		control.hide()
+		_stop_tween(control)
+		control.modulate.a = 1.0
+
+
+func _set_modal(panel: Control) -> void:
+	modal_scrim.visible = panel != null
+	for button: Button in root.find_children("*", "Button", true, false):
+		button.disabled = panel != null and not panel.is_ancestor_of(button)
+
+
+func _stop_tween(control: Control) -> void:
+	var id := control.get_instance_id()
+	if _tweens.has(id):
+		var tween: Tween = _tweens[id]
+		if tween.is_valid():
+			tween.kill()
+		_tweens.erase(id)
+
+
+func _reveal(control: Control) -> void:
+	_stop_tween(control)
+	control.modulate.a = 1.0 if reduced_motion else 0.0
+	if not reduced_motion:
+		var tween := create_tween()
+		tween.tween_property(control, "modulate:a", 1.0, 0.2).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
+		_tweens[control.get_instance_id()] = tween
 
 
 func _focus_first(panel: Node) -> void:
@@ -176,7 +400,7 @@ func _focus_first(panel: Node) -> void:
 		buttons[0].grab_focus()
 
 
-func _panel(dimensions: Vector2, anchor: Vector2, parent: Control = null) -> PanelContainer:
+func _panel(dimensions: Vector2, anchor: Vector2, parent: Control = null, transparent: bool = false) -> PanelContainer:
 	var panel := PanelContainer.new()
 	panel.anchor_left = anchor.x
 	panel.anchor_right = anchor.x
@@ -188,21 +412,21 @@ func _panel(dimensions: Vector2, anchor: Vector2, parent: Control = null) -> Pan
 	panel.offset_right = dimensions.x * (1.0 - factor.x)
 	panel.offset_bottom = dimensions.y * (1.0 - factor.y)
 	var style := StyleBoxFlat.new()
-	style.bg_color = INK
-	style.border_color = Color("647064")
-	style.border_width_top = 2
+	style.bg_color = Color.TRANSPARENT if transparent else INK
+	style.border_color = YELLOW
+	style.border_width_left = 0 if transparent else 2
 	panel.add_theme_stylebox_override("panel", style)
 	(root if parent == null else parent).add_child(panel)
 	return panel
 
 
-func _column(parent: Control, margin: int = 24) -> VBoxContainer:
+func _column(parent: Control, margin: int = 24, separation: int = 8) -> VBoxContainer:
 	var padding := MarginContainer.new()
 	for edge in ["left", "right", "top", "bottom"]:
 		padding.add_theme_constant_override("margin_" + edge, margin)
 	parent.add_child(padding)
 	var column := VBoxContainer.new()
-	column.add_theme_constant_override("separation", 10)
+	column.add_theme_constant_override("separation", separation)
 	padding.add_child(column)
 	return column
 
@@ -212,15 +436,64 @@ func _label(parent: Node, text: String, font_size: int, color: Color = PAPER) ->
 	label.text = text
 	label.add_theme_font_size_override("font_size", font_size)
 	label.add_theme_color_override("font_color", color)
+	if font_size >= 27:
+		label.add_theme_font_override("font", DISPLAY_FONT)
+	if text in ["000", "00:00.00"]:
+		var numeric := FontVariation.new()
+		numeric.base_font = DISPLAY_FONT
+		numeric.opentype_features = {"tnum": 1}
+		label.add_theme_font_override("font", numeric)
 	parent.add_child(label)
 	return label
 
 
-func _button(parent: Node, text: String, callback: Callable) -> Button:
+func _button(parent: Node, text: String, callback: Callable, primary: bool = false) -> Button:
 	var button := Button.new()
 	button.text = text
 	button.alignment = HORIZONTAL_ALIGNMENT_LEFT
 	button.custom_minimum_size.y = 48
-	button.pressed.connect(callback)
+	button.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
+	if primary:
+		for state in ["normal", "hover", "pressed", "focus"]:
+			var style := StyleBoxFlat.new()
+			style.bg_color = YELLOW if state != "pressed" else Color("c5a425")
+			style.set_content_margin_all(18)
+			style.border_color = PAPER
+			style.set_border_width_all(2 if state in ["focus", "hover"] else 0)
+			button.add_theme_stylebox_override(state, style)
+		for state in ["font_color", "font_hover_color", "font_focus_color", "font_pressed_color"]:
+			button.add_theme_color_override(state, Color("11191e"))
+		button.add_theme_font_size_override("font_size", 24)
+	button.pressed.connect(func():
+		ui_confirmed.emit()
+		callback.call()
+	)
 	parent.add_child(button)
 	return button
+
+
+func _progress(parent: Control, width: float) -> ProgressBar:
+	var bar := ProgressBar.new()
+	bar.custom_minimum_size = Vector2(width, 5)
+	bar.max_value = 1.0
+	bar.show_percentage = false
+	parent.add_child(bar)
+	return bar
+
+
+func _spacer(parent: Control, height: float) -> void:
+	var spacer := Control.new()
+	spacer.custom_minimum_size.y = height
+	parent.add_child(spacer)
+
+
+func _center(control: Label, anchor: Vector2, dimensions: Vector2, top: float) -> void:
+	control.anchor_left = anchor.x
+	control.anchor_right = anchor.x
+	control.anchor_top = anchor.y
+	control.anchor_bottom = anchor.y
+	control.offset_left = -dimensions.x / 2
+	control.offset_right = dimensions.x / 2
+	control.offset_top = top
+	control.offset_bottom = top + dimensions.y
+	control.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER

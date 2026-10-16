@@ -48,4 +48,10 @@ Asphalt prompt:
 
 `game/assets/brand/crew-symbol.png` and `crew-logo.png` are copies of the existing repository symbol/logo. Used for application icon and engine startup splash. Originals preserved. `art/title-native-capture.png` and `art/riding-native-capture.png` are actual native-engine verification captures; the riding capture shows the current development geometry, not the final production art target.
 
+## Onboarding update
+
+`game/assets/art/onboarding-crew-yard-v2.png` is the new generated title background. See ONBOARDING_ART.md for the exact prompt and inspection. The original title art remains in the repository for reference. The current export includes both, so payload optimization remains.
+
+Barlow Medium and Barlow Condensed ExtraBold come from the official Google Fonts repository (`https://github.com/google/fonts/tree/main/ofl/barlow` and `/ofl/barlowcondensed`). Copyright 2017 The Barlow Project Authors. Unmodified SIL Open Font License files accompany both in `game/assets/fonts/`. Use ASCII arrows/control names where browser fonts lack arrow glyphs; native system fallback is not a web guarantee. `core/feedback_audio.gd` synthesizes original short confirmation/skill-completion PCM samples for web-compatible playback; final sound design remains pending.
+
 Use meters, consistent axes, sensible pivots and named mounting points. Establish measured geometry/texture budgets during the feasibility slice. Keep concept boards outside runtime imports until an explicit runtime use exists. Add provenance for third-party and generated assets; do not extract reference-game art into this project.
