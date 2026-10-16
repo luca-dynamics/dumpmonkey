@@ -2,6 +2,8 @@
 
 Production landing page for DumpMonkey Crew, built with Next.js App Router, TypeScript, and Tailwind CSS.
 
+DumpMonkey Racing lives alongside the website in [`game/`](game/README.md). See the [racing architecture](docs/racing/ARCHITECTURE.md), [roadmap](docs/racing/ROADMAP.md), and [verification record](docs/racing/TESTING.md) before continuing development. The Godot game has its own build/export pipeline.
+
 ## Getting Started
 
 Install dependencies:
