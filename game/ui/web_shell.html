@@ -1,0 +1,77 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="DumpMonkey Racing: ride Crew Yard, master wheelies and beat your best time.">
+  <title>$GODOT_PROJECT_NAME</title>
+  $GODOT_HEAD_INCLUDE
+  <style>
+    * { box-sizing: border-box; }
+    html, body { margin: 0; width: 100%; height: 100%; background: #11191e; color: #eeeede; font-family: system-ui, sans-serif; }
+    body { overflow: hidden; }
+    #canvas { display: block; width: 100%; height: 100%; touch-action: none; }
+    #canvas:focus-visible { outline: 3px solid #f4ce31; outline-offset: -3px; }
+    #loading { position: fixed; inset: 0; display: grid; place-content: center; padding: 24px; text-align: center; background: #11191e; }
+    #loading[hidden] { display: none; }
+    .crew { color: #f4ce31; font-size: 14px; font-weight: 700; }
+    h1 { margin: 12px 0 24px; font-size: clamp(32px, 6vw, 64px); line-height: 1; }
+    progress { width: min(360px, 80vw); height: 8px; accent-color: #f4ce31; margin: 16px auto; }
+    #notice { max-width: 560px; white-space: pre-line; line-height: 1.6; }
+    .hint { max-width: 560px; color: #bac3bf; line-height: 1.5; }
+  </style>
+</head>
+<body>
+  <canvas id="canvas" tabindex="0" aria-label="DumpMonkey Racing game" aria-describedby="controls">Your browser needs canvas support to play.</canvas>
+  <div id="loading" aria-busy="true">
+    <div class="crew">DUMPMONKEYCREW / RACING</div>
+    <h1>CREW YARD.</h1>
+    <p id="status" role="status">Loading your ride…</p>
+    <progress id="progress" aria-label="Game download progress"></progress>
+    <p id="notice" role="alert" hidden></p>
+    <p class="hint" id="controls">WASD or arrows to ride. Space for wheelies. Q / E to balance. Escape to pause.</p>
+    <noscript><p>Enable JavaScript to load the game.</p></noscript>
+  </div>
+  <script src="$GODOT_URL"></script>
+  <script>
+    const config = $GODOT_CONFIG;
+    const loading = document.getElementById('loading');
+    const progress = document.getElementById('progress');
+    const status = document.getElementById('status');
+    const notice = document.getElementById('notice');
+    function failure(error) {
+      console.error(error);
+      loading.hidden = false;
+      loading.setAttribute('aria-busy', 'false');
+      status.textContent = 'We couldn’t start your ride.';
+      progress.hidden = true;
+      notice.hidden = false;
+      notice.textContent = 'Try reloading in a current Chrome, Edge or Firefox browser with WebGL 2 available.\n' + (error instanceof Error ? error.message : String(error));
+    }
+    if (typeof Engine === 'undefined') {
+      failure('The game engine could not be downloaded.');
+    } else {
+      const missing = Engine.getMissingFeatures({ threads: $GODOT_THREADS_ENABLED });
+      if (missing.length) {
+        failure('Missing browser features: ' + missing.join(', '));
+      } else {
+        const engine = new Engine(config);
+        engine.startGame({
+          onProgress(current, total) {
+            if (current > 0 && total > 0) {
+              progress.max = total;
+              progress.value = current;
+            } else {
+              progress.removeAttribute('value');
+            }
+          }
+        }).then(() => {
+          loading.setAttribute('aria-busy', 'false');
+          loading.hidden = true;
+          document.getElementById('canvas').focus();
+        }, failure);
+      }
+    }
+  </script>
+</body>
+</html>

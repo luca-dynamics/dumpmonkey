@@ -8,3 +8,9 @@ npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 .DS_Store
+.tools/
+game/.godot/
+game/build/*
+!game/build/.gdignore
+game/test-output/*
+!game/test-output/.gdignore
