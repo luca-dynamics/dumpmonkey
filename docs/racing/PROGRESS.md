@@ -33,3 +33,7 @@ The supplied Unity/mobile reference board established the required product bar: 
 Added `game/assets/art/garage-tuning-v1.png`, a new built-in-imagegen garage art-direction reference with a coherent hero motorcycle, DumpMonkey rider, workshop lighting and UI-safe negative space. Added a navigable Garage screen to the Godot HUD with bike-tuning presentation, rider-setup/settings sections, real sound/reduced-motion controls and a ride launch path. This is a product-shell step; the modular bike, skinned rider, part swaps and modeled garage remain production asset work.
 
 Validation after the Garage change: 24 physics checks, 13 integration checks, 35 onboarding checks and a successful Web release export. No browser visual capture of the new Garage screen has been recorded yet.
+
+## Loading shell polish
+
+The browser boot screen was reviewed against the owner's screenshot. The generic centered text/progress treatment was replaced with an art-directed responsive shell: left-weighted title hierarchy, chapter framing, asymmetrical status rail, restrained diagnostic copy and responsive mobile layout. Browser reload visibly verified the new shell and successful handoff into the Godot title screen. This fixes the loading presentation; it does not replace the need for production in-game 3D assets.
