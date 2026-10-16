@@ -6,7 +6,7 @@ Date: 2026-10-16. Engine: Godot 4.7.2.stable.official.ed1daf0bf. Windows, Compat
 
 - Official Windows engine archive matches published SHA512 checksum; matching single-threaded web template ZIP entries pass CRC and size verification. Setup script exercised successfully.
 - `tests/run_tests.gd`: 24 checks passed. Ordered gates/countdown/finish, valid wheelie distance, airborne and stationary scoring rejection, directional swept gate bounds, actual acceleration, braking, floor contact, assisted wheelie entry, overbalance wipeout, reset and top-speed thin-wall collision.
-- `tests/integration.gd`: 11 checks passed. Actual scene/button signals, countdown, pause/resume, directional gate/finish integration, results UI, respawn invalidation, free riding, focus-loss pause, timer/movement freeze and return to menu. Uses a separate test save file. Gate completion is driven with controlled crossing positions; this is not a human-driven lap test.
+- `tests/integration.gd`: 13 checks passed. Actual scene/button signals, Garage entry and default tuning section, countdown, pause/resume, directional gate/finish integration, results UI, respawn invalidation, free riding, focus-loss pause, timer/movement freeze and return to menu. Uses a separate test save file. Gate completion is driven with controlled crossing positions; this is not a human-driven lap test.
 - Native title and riding screenshots rendered and visually inspected. Corrected misplaced toast/countdown anchors and rear-wheel visual pivot. Title illustration is integrated. Actual riding graphics remain a procedural 3D development study.
 - Single-threaded Web release export succeeds. Local server returns HTTP 200 and `application/wasm` for the engine and supports gzip responses. Server binds to 127.0.0.1:4173.
 - Build output, engine binaries and generated visual-test output are ignored. Existing landing-page source behavior is not changed.
@@ -18,6 +18,7 @@ Date: 2026-10-16. Engine: Godot 4.7.2.stable.official.ed1daf0bf. Windows, Compat
 - Ramp/curb landing quality and sustained cornering feel need hands-on playtesting.
 - Production skinned rider, modular bike assets, animation and final engine/feedback sound design remain. Procedural models and the synthesized PCM loop do not meet those production deliverables.
 - Settings cover sound and reduced motion; quality presets, richer accessibility/input settings and touch controls remain.
+- The new Garage screen is native-tested and included in the Web export, but its visual presentation has not yet been captured in the browser. Bike tuning cards are currently product-shell data; real modular part swaps and saved rider configuration remain.
 - Download/startup measurements on a real network and supported-device performance gates remain. Local file/gzip sizes are packaging measurements only.
 
 ## Local packaging measurements

@@ -1,6 +1,7 @@
 extends CanvasLayer
 
 signal start_requested(race: bool)
+signal garage_requested
 signal journey_requested
 signal lesson_requested
 signal skip_arrival_requested
@@ -21,6 +22,11 @@ const BODY_FONT = preload("res://assets/fonts/Barlow-Medium.ttf")
 const Lesson = preload("res://modes/ride_lesson.gd")
 var root: Control
 var menu: PanelContainer
+var garage: Control
+var garage_section_title: Label
+var garage_section_copy: Label
+var garage_sound_button: Button
+var garage_motion_button: Button
 var pause_panel: PanelContainer
 var result_panel: PanelContainer
 var invitation_panel: PanelContainer
@@ -66,6 +72,7 @@ func _ready() -> void:
 	add_child(root)
 	root.theme = _theme()
 	_build_menu()
+	_build_garage()
 	_build_telemetry()
 	_build_arrival()
 	_build_lesson()
@@ -127,6 +134,7 @@ func _build_menu() -> void:
 	_label(box, "CREW YARD  /  CHAPTER 01", 17, MUTED)
 	_spacer(box, 12)
 	primary_button = _button(box, "START RIDING     >", func(): journey_requested.emit(), true)
+	_button(box, "OPEN CREW GARAGE", func(): garage_requested.emit())
 	var choices := HBoxContainer.new()
 	box.add_child(choices)
 	_button(choices, "TIME TRIAL", func(): start_requested.emit(true))
@@ -140,6 +148,108 @@ func _build_menu() -> void:
 	motion_button = _button(options, "REDUCED MOTION OFF", func(): motion_requested.emit())
 	motion_button.add_theme_font_size_override("font_size", 15)
 	_label(box, "SELECT  Enter / A     •     NAVIGATE  Arrows / D-pad", 14, MUTED)
+
+
+func _build_garage() -> void:
+	garage = Control.new()
+	garage.name = "Garage"
+	garage.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	garage.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	root.add_child(garage)
+
+	var artwork := TextureRect.new()
+	artwork.name = "GarageArtwork"
+	artwork.texture = load("res://assets/art/garage-tuning-v1.png")
+	artwork.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	artwork.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_COVERED
+	artwork.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	artwork.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	garage.add_child(artwork)
+
+	var veil := ColorRect.new()
+	veil.color = Color("05080dcc")
+	veil.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	veil.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	garage.add_child(veil)
+
+	var left_fade := Gradient.new()
+	left_fade.set_color(0, Color("05080df5"))
+	left_fade.set_color(1, Color("05080d00"))
+	var left_texture := GradientTexture2D.new()
+	left_texture.gradient = left_fade
+	left_texture.fill_from = Vector2(0, 0)
+	left_texture.fill_to = Vector2(1, 0)
+	var left_overlay := TextureRect.new()
+	left_overlay.texture = left_texture
+	left_overlay.anchor_right = 0.58
+	left_overlay.anchor_bottom = 1
+	left_overlay.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	garage.add_child(left_overlay)
+
+	var heading := _label(garage, "CREW GARAGE", 34, PAPER)
+	heading.position = Vector2(54, 38)
+	var subheading := _label(garage, "YELLOWLINE MK I  /  STREET STUNT BUILD", 15, YELLOW)
+	subheading.position = Vector2(57, 84)
+
+	var navigation := _panel(Vector2(290, 610), Vector2(0.035, 0.5), garage, false)
+	var nav_box := _column(navigation, 24, 5)
+	_label(nav_box, "WORKSHOP", 15, MUTED)
+	_button(nav_box, "BIKE TUNING", func(): _show_garage_section("BIKE TUNING"), true)
+	_button(nav_box, "RIDER SETUP", func(): _show_garage_section("RIDER SETUP"))
+	_button(nav_box, "SETTINGS", func(): _show_garage_section("SETTINGS"))
+	_spacer(nav_box, 18)
+	_label(nav_box, "CURRENT BUILD", 14, MUTED)
+	_label(nav_box, "YELLOWLINE MK I", 25)
+	_label(nav_box, "STREET / CLASS 01\nSTOCK CREW SPEC", 15, YELLOW)
+	_spacer(nav_box, 12)
+	_label(nav_box, "GARAGE OPTIONS", 14, MUTED)
+	garage_sound_button = _button(nav_box, "SOUND ON", func(): mute_requested.emit())
+	garage_sound_button.add_theme_font_size_override("font_size", 15)
+	garage_motion_button = _button(nav_box, "REDUCED MOTION OFF", func(): motion_requested.emit())
+	garage_motion_button.add_theme_font_size_override("font_size", 15)
+	_button(nav_box, "BACK TO TITLE", func(): menu_requested.emit())
+
+	var detail := _panel(Vector2(570, 540), Vector2(0.96, 0.56), garage, false)
+	var detail_box := _column(detail, 28, 8)
+	garage_section_title = _label(detail_box, "BIKE TUNING", 44)
+	garage_section_copy = _label(detail_box, "Dial in the machine before you find your line.", 19, MUTED)
+	_spacer(detail_box, 12)
+	var specs := GridContainer.new()
+	specs.columns = 2
+	specs.add_theme_constant_override("h_separation", 30)
+	specs.add_theme_constant_override("v_separation", 8)
+	detail_box.add_child(specs)
+	_spec_card(specs, "ENGINE", "82", "THROTTLE RESPONSE")
+	_spec_card(specs, "GRIP", "74", "CORNER CONTROL")
+	_spec_card(specs, "BALANCE", "68", "WHEELIE ASSIST")
+	_spec_card(specs, "STYLE", "91", "CREW PRESENCE")
+	_spacer(detail_box, 12)
+	_label(detail_box, "EQUIPPED PARTS", 15, YELLOW)
+	_label(detail_box, "EXHAUST  /  STREET FLOW        WHEELS  /  GRIP SET", 17)
+	_label(detail_box, "BODYWORK  /  YELLOWLINE KIT  SUSPENSION  /  CREW SPEC", 17)
+	_spacer(detail_box, 16)
+	_button(detail_box, "RIDE THIS BUILD    >", func(): journey_requested.emit(), true)
+	garage.hide()
+
+
+func _spec_card(parent: Node, title: String, value: String, caption: String) -> void:
+	var card := VBoxContainer.new()
+	card.custom_minimum_size = Vector2(230, 76)
+	parent.add_child(card)
+	_label(card, title, 14, MUTED)
+	_label(card, value + "  /  100", 29, YELLOW)
+	_label(card, caption, 13, MUTED)
+
+
+func _show_garage_section(section: String) -> void:
+	garage_section_title.text = section
+	match section:
+		"RIDER SETUP":
+			garage_section_copy.text = "Set the rider silhouette, kit and stance for the next run."
+		"SETTINGS":
+			garage_section_copy.text = "Tune the presentation for your screen, sound and play style."
+		_:
+			garage_section_copy.text = "Dial in the machine before you find your line."
 
 
 func _build_telemetry() -> void:
@@ -289,6 +399,16 @@ func show_menu() -> void:
 	primary_button.grab_focus()
 
 
+func show_garage() -> void:
+	_hide_overlays()
+	menu.hide()
+	root.get_node("TitleArtwork").hide()
+	root.get_node("TitleVeil").hide()
+	garage.show()
+	_reveal(garage)
+	_focus_first(garage)
+
+
 func start_run() -> void:
 	_hide_overlays()
 	menu.hide()
@@ -364,7 +484,7 @@ func show_result(text: String) -> void:
 
 func _hide_overlays() -> void:
 	_set_modal(null)
-	for control in [pause_panel, result_panel, arrival, lesson_panel, invitation_panel]:
+	for control in [pause_panel, result_panel, arrival, lesson_panel, invitation_panel, garage]:
 		control.hide()
 		_stop_tween(control)
 		control.modulate.a = 1.0

@@ -25,3 +25,11 @@ Owner explicitly rejected the development geometry as insufficiently polished an
 The in-app browser now connects. Verified release title rendering, Start Riding, cinematic handoff and real throttle input advancing to braking. Found and fixed a web-only JavaScriptBridge integer/boolean comparison that stopped scene initialization; added bridge-conversion regression checks and a scene-readiness loading handshake. All five lesson skills complete under actual controller input in the native scene tests. See TESTING.md for detailed evidence and remaining browser/hardware/art limits. The current 3D rider/bike/environment remain development assets and do not meet the owner's final art bar.
 
 Changes continue on draft PR #1: https://github.com/luca-dynamics/dumpmonkey/pull/1. Local verification now totals 70 checks (24 physics/rules, 11 integration, 35 onboarding). Native review captures of the revised title, arrival and challenge invitation are in docs/racing/art/onboarding-*.png. Do not interpret the new raster background as a production 3D upgrade.
+
+## Garage re-baseline
+
+The supplied Unity/mobile reference board established the required product bar: garage tuning, rider setup, bike collection, branded loading, riding HUD, wheelie challenges and settings. REA remains reserved for authorized reference-app research; screenshots alone cannot reveal internal Unity implementation or provide reusable proprietary assets. The next approved slice is documented in GARAGE_VERTICAL_SLICE.md.
+
+Added `game/assets/art/garage-tuning-v1.png`, a new built-in-imagegen garage art-direction reference with a coherent hero motorcycle, DumpMonkey rider, workshop lighting and UI-safe negative space. Added a navigable Garage screen to the Godot HUD with bike-tuning presentation, rider-setup/settings sections, real sound/reduced-motion controls and a ride launch path. This is a product-shell step; the modular bike, skinned rider, part swaps and modeled garage remain production asset work.
+
+Validation after the Garage change: 24 physics checks, 13 integration checks, 35 onboarding checks and a successful Web release export. No browser visual capture of the new Garage screen has been recorded yet.

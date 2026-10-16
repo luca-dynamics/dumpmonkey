@@ -50,6 +50,7 @@ func _ready() -> void:
 	camera.arrival_finished.connect(_finish_arrival)
 	hud = Hud.new()
 	add_child(hud)
+	hud.garage_requested.connect(_open_garage)
 	hud.start_requested.connect(_start)
 	hud.journey_requested.connect(_begin_journey)
 	hud.lesson_requested.connect(func(): _begin_journey(true))
@@ -171,6 +172,18 @@ func _begin_journey(replay: bool = false) -> void:
 	hud.show_arrival()
 	camera.begin_arrival()
 	_ensure_audio()
+
+
+func _open_garage() -> void:
+	_commit_wheelie()
+	opening = Opening.NONE
+	paused = false
+	camera.end_arrival()
+	bike.tuning.top_speed = normal_top_speed
+	bike.active = false
+	session.state = Session.State.MENU
+	hud.show_garage()
+	_update_profile_ui()
 
 
 func _finish_arrival() -> void:
@@ -407,8 +420,10 @@ func _input(event: InputEvent) -> void:
 
 func _update_profile_ui() -> void:
 	hud.mute_button.text = "SOUND OFF" if profile.muted else "SOUND ON"
+	hud.garage_sound_button.text = "SOUND OFF" if profile.muted else "SOUND ON"
 	hud.primary_button.text = "CONTINUE RIDING    >" if profile.introduction_complete else "START RIDING    >"
 	hud.motion_button.text = "REDUCED MOTION ON" if profile.reduced_motion else "REDUCED MOTION OFF"
+	hud.garage_motion_button.text = "REDUCED MOTION ON" if profile.reduced_motion else "REDUCED MOTION OFF"
 	hud.reduced_motion = profile.reduced_motion
 	camera.reduced_motion = profile.reduced_motion
 	feedback.muted = profile.muted

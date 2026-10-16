@@ -27,6 +27,10 @@ func _run() -> void:
 	current_scene = world
 	await process_frame
 	check(world.hud.menu.visible and not world.bike.active, "title screen prevents movement")
+	world.hud.garage_requested.emit()
+	check(world.hud.garage.visible and not world.hud.menu.visible, "garage opens from title without starting the bike")
+	check(world.hud.garage_section_title.text == "BIKE TUNING", "garage opens on the bike tuning section")
+	world._menu()
 	world.hud.start_requested.emit(true)
 	check(world.session.state == Session.State.COUNTDOWN and not world.bike.active, "time-trial button starts countdown")
 	world._pause(true)
