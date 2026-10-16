@@ -27,6 +27,12 @@ var garage_section_title: Label
 var garage_section_copy: Label
 var garage_sound_button: Button
 var garage_motion_button: Button
+var menu_title: Label
+var menu_racing: Label
+var menu_chapter: Label
+var menu_choices: HBoxContainer
+var menu_options: HBoxContainer
+var menu_hint: Label
 var pause_panel: PanelContainer
 var result_panel: PanelContainer
 var invitation_panel: PanelContainer
@@ -77,6 +83,8 @@ func _ready() -> void:
 	_build_arrival()
 	_build_lesson()
 	_build_overlays()
+	get_viewport().size_changed.connect(_layout_menu)
+	call_deferred("_layout_menu")
 
 
 func _theme() -> Theme:
@@ -128,26 +136,62 @@ func _build_menu() -> void:
 	menu = _panel(Vector2(490, 710), Vector2(0.055, 0.5), null, true)
 	var box := _column(menu, 0, 9)
 	_label(box, "DUMPMONKEYCREW PRESENTS", 17, YELLOW)
-	var title := _label(box, "DUMP\nMONKEY", 102)
-	title.add_theme_constant_override("line_spacing", -27)
-	_label(box, "RACING", 40, YELLOW)
-	_label(box, "CREW YARD  /  CHAPTER 01", 17, MUTED)
+	menu_title = _label(box, "DUMP\nMONKEY", 102)
+	menu_title.add_theme_constant_override("line_spacing", -27)
+	menu_racing = _label(box, "RACING", 40, YELLOW)
+	menu_chapter = _label(box, "CREW YARD  /  CHAPTER 01", 17, MUTED)
 	_spacer(box, 12)
 	primary_button = _button(box, "START RIDING     >", func(): journey_requested.emit(), true)
 	_button(box, "OPEN CREW GARAGE", func(): garage_requested.emit())
-	var choices := HBoxContainer.new()
-	box.add_child(choices)
-	_button(choices, "TIME TRIAL", func(): start_requested.emit(true))
-	_button(choices, "FREE RIDE", func(): start_requested.emit(false))
+	menu_choices = HBoxContainer.new()
+	menu_choices.add_theme_constant_override("separation", 10)
+	box.add_child(menu_choices)
+	var trial := _button(menu_choices, "TIME TRIAL", func(): start_requested.emit(true))
+	var free_ride := _button(menu_choices, "FREE RIDE", func(): start_requested.emit(false))
+	for choice in [trial, free_ride]:
+		choice.custom_minimum_size.x = 138
+		choice.add_theme_font_size_override("font_size", 14)
 	_button(box, "REPLAY RIDING INTRO", func(): lesson_requested.emit())
 	best_label = _label(box, "", 16, MUTED)
-	var options := HBoxContainer.new()
-	box.add_child(options)
-	mute_button = _button(options, "SOUND ON", func(): mute_requested.emit())
+	menu_options = HBoxContainer.new()
+	menu_options.add_theme_constant_override("separation", 10)
+	box.add_child(menu_options)
+	mute_button = _button(menu_options, "SOUND ON", func(): mute_requested.emit())
 	mute_button.add_theme_font_size_override("font_size", 15)
-	motion_button = _button(options, "REDUCED MOTION OFF", func(): motion_requested.emit())
+	motion_button = _button(menu_options, "REDUCED MOTION OFF", func(): motion_requested.emit())
 	motion_button.add_theme_font_size_override("font_size", 15)
-	_label(box, "SELECT  Enter / A     •     NAVIGATE  Arrows / D-pad", 14, MUTED)
+	menu_hint = _label(box, "SELECT  Enter / A     •     NAVIGATE  Arrows / D-pad", 14, MUTED)
+
+
+func _layout_menu() -> void:
+	if not is_instance_valid(menu):
+		return
+	var viewport_size := root.get_viewport_rect().size
+	var compact := viewport_size.x < 760.0 or viewport_size.y < 620.0 or viewport_size.x / maxf(viewport_size.y, 1.0) < 1.25
+	var width := minf(490.0, maxf(280.0, viewport_size.x - (48.0 if compact else 100.0)))
+	var height := minf(710.0, maxf(420.0, viewport_size.y - (36.0 if compact else 80.0)))
+	var left := 24.0 if compact else maxf(48.0, viewport_size.x * 0.055)
+	menu.anchor_left = 0.0
+	menu.anchor_right = 0.0
+	menu.anchor_top = 0.5
+	menu.anchor_bottom = 0.5
+	menu.offset_left = left
+	menu.offset_right = left + width
+	menu.offset_top = -height * 0.5
+	menu.offset_bottom = height * 0.5
+	menu_title.add_theme_font_size_override("font_size", 68 if compact else 102)
+	menu_title.add_theme_constant_override("line_spacing", -18 if compact else -27)
+	menu_racing.add_theme_font_size_override("font_size", 31 if compact else 40)
+	menu_chapter.add_theme_font_size_override("font_size", 13 if compact else 17)
+	primary_button.add_theme_font_size_override("font_size", 20 if compact else 24)
+	for choice in menu_choices.get_children():
+		choice.add_theme_font_size_override("font_size", 16 if compact else 14)
+		choice.custom_minimum_size.y = 44 if compact else 48
+	for button in [mute_button, motion_button]:
+		button.add_theme_font_size_override("font_size", 13 if compact else 15)
+		button.custom_minimum_size.y = 40 if compact else 48
+	best_label.add_theme_font_size_override("font_size", 14 if compact else 16)
+	menu_hint.add_theme_font_size_override("font_size", 11 if compact else 14)
 
 
 func _build_garage() -> void:

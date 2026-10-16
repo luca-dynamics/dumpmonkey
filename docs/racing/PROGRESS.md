@@ -37,3 +37,5 @@ Validation after the Garage change: 24 physics checks, 13 integration checks, 35
 ## Loading shell polish
 
 The browser boot screen was reviewed against the owner's screenshot. The generic centered text/progress treatment was replaced with an art-directed responsive shell: left-weighted title hierarchy, chapter framing, asymmetrical status rail, restrained diagnostic copy and responsive mobile layout. Browser reload visibly verified the new shell and successful handoff into the Godot title screen. This fixes the loading presentation; it does not replace the need for production in-game 3D assets.
+
+The title menu was then re-spaced against the supplied portrait mobile reference: the live Godot text now uses a dominant title block, single primary CTA, ordered secondary actions, readable metadata and an aspect-ratio-aware compact layout. Imagegen remains the visual reference for hierarchy and composition; live text stays native for sharpness, accessibility and localization.
